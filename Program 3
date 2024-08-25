@@ -1,0 +1,233 @@
+import java.io.*;
+import java.util.*;
+
+// User class to handle user information
+class User implements Serializable {
+    private String username;
+    private String password;
+
+    public User(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public boolean checkPassword(String password) {
+        return this.password.equals(password);
+    }
+}
+
+// Expense class to handle individual expenses
+class Expense implements Serializable {
+    private String category;
+    private double amount;
+    private Date date;
+    private String description;
+
+    public Expense(String category, double amount, Date date, String description) {
+        this.category = category;
+        this.amount = amount;
+        this.date = date;
+        this.description = description;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    @Override
+    public String toString() {
+        return "Category: " + category + ", Amount: " + amount + ", Date: " + date + ", Description: " + description;
+    }
+}
+
+// ExpenseManager class to manage expenses and users
+class ExpenseManager {
+    private Map<String, User> users;
+    private List<Expense> expenses;
+    private static final String DATA_FILE = "expenses.dat";
+
+    public ExpenseManager() {
+        users = new HashMap<>();
+        expenses = new ArrayList<>();
+        loadExpenses();
+    }
+
+    public boolean registerUser(String username, String password) {
+        if (users.containsKey(username)) {
+            return false; // User already exists
+        }
+        users.put(username, new User(username, password));
+        return true;
+    }
+
+    public User loginUser(String username, String password) {
+        User user = users.get(username);
+        if (user != null && user.checkPassword(password)) {
+            return user;
+        }
+        return null;
+    }
+
+    public void addExpense(Expense expense) {
+        expenses.add(expense);
+        saveExpenses();
+    }
+
+    public List<Expense> listExpenses() {
+        return expenses;
+    }
+
+    public double calculateTotalByCategory(String category) {
+        return expenses.stream()
+                .filter(expense -> expense.getCategory().equalsIgnoreCase(category))
+                .mapToDouble(Expense::getAmount)
+                .sum();
+    }
+
+    private void saveExpenses() {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(DATA_FILE))) {
+            out.writeObject(expenses);
+        } catch (IOException e) {
+            System.out.println("Error saving expenses: " + e.getMessage());
+        }
+    }
+
+    private void loadExpenses() {
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(DATA_FILE))) {
+            expenses = (List<Expense>) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("No previous expenses found or error loading expenses.");
+        }
+    }
+}
+
+// Main class for running the Expense Tracker application
+public class ExpenseTracker {
+    private static Scanner scanner = new Scanner(System.in);
+    private static ExpenseManager manager = new ExpenseManager();
+
+    public static void main(String[] args) {
+        System.out.println("Welcome to Expense Tracker!");
+
+        User currentUser = null;
+        while (currentUser == null) {
+            System.out.println("1. Register");
+            System.out.println("2. Login");
+            System.out.print("Choose an option: ");
+            int option = scanner.nextInt();
+            scanner.nextLine(); // Consume newline
+
+            if (option == 1) {
+                currentUser = register();
+            } else if (option == 2) {
+                currentUser = login();
+            } else {
+                System.out.println("Invalid option. Please try again.");
+            }
+        }
+
+        while (true) {
+            System.out.println("\n1. Add Expense");
+            System.out.println("2. List Expenses");
+            System.out.println("3. Calculate Total by Category");
+            System.out.println("4. Exit");
+            System.out.print("Choose an option: ");
+            int option = scanner.nextInt();
+            scanner.nextLine(); // Consume newline
+
+            if (option == 1) {
+                addExpense();
+            } else if (option == 2) {
+                listExpenses();
+            } else if (option == 3) {
+                calculateTotalByCategory();
+            } else if (option == 4) {
+                System.out.println("Goodbye!");
+                break;
+            } else {
+                System.out.println("Invalid option. Please try again.");
+            }
+        }
+    }
+
+    private static User register() {
+        System.out.print("Enter a username: ");
+        String username = scanner.nextLine();
+        System.out.print("Enter a password: ");
+        String password = scanner.nextLine();
+
+        if (manager.registerUser(username, password)) {
+            System.out.println("Registration successful. Please login.");
+        } else {
+            System.out.println("Username already exists. Try again.");
+        }
+        return null;
+    }
+
+    private static User login() {
+        System.out.print("Enter your username: ");
+        String username = scanner.nextLine();
+        System.out.print("Enter your password: ");
+        String password = scanner.nextLine();
+
+        User user = manager.loginUser(username, password);
+        if (user != null) {
+            System.out.println("Login successful. Welcome, " + user.getUsername() + "!");
+        } else {
+            System.out.println("Invalid username or password. Try again.");
+        }
+        return user;
+    }
+
+    private static void addExpense() {
+        System.out.print("Enter category: ");
+        String category = scanner.nextLine();
+        System.out.print("Enter amount: ");
+        double amount = scanner.nextDouble();
+        scanner.nextLine(); // Consume newline
+        System.out.print("Enter date (yyyy-mm-dd): ");
+        String dateString = scanner.nextLine();
+        System.out.print("Enter description: ");
+        String description = scanner.nextLine();
+
+        try {
+            Date date = new Date(dateString);
+            Expense expense = new Expense(category, amount, date, description);
+            manager.addExpense(expense);
+            System.out.println("Expense added successfully.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid date format. Please try again.");
+        }
+    }
+
+    private static void listExpenses() {
+        List<Expense> expenses = manager.listExpenses();
+        if (expenses.isEmpty()) {
+            System.out.println("No expenses recorded.");
+        } else {
+            System.out.println("Your expenses:");
+            for (Expense expense : expenses) {
+                System.out.println(expense);
+            }
+        }
+    }
+
+    private static void calculateTotalByCategory() {
+        System.out.print("Enter category: ");
+        String category = scanner.nextLine();
+        double total = manager.calculateTotalByCategory(category);
+        System.out.println("Total expenses for " + category + ": " + total);
+    }
+}
